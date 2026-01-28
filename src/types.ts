@@ -88,6 +88,12 @@ export interface TemplateOptions {
 
 export interface ExtractorOptions {
   debug?: boolean;
+  /** Maximum retries for transient failures (default: 3) */
+  maxRetries?: number;
+  /** Abort signal for cancellation */
+  signal?: AbortSignal;
+  /** Callback for partial results during pagination */
+  onPageExtracted?: (items: ExtractedItem[], pageNum: number) => void;
 }
 
 // Default constants - avoid magic numbers
@@ -97,10 +103,30 @@ export const DEFAULTS = {
   MAX_PAGES: 1,
   PAGINATION_WAIT_MS: 2_000,
   REGEX_MAX_LENGTH: 500,
+  MAX_RETRIES: 3,
+  RETRY_DELAY_MS: 1_000,
+  OVERALL_TIMEOUT_MS: 300_000, // 5 minutes max for entire extraction
 } as const;
 
+/** Errors that are transient and worth retrying */
+export const RETRYABLE_ERRORS = [
+  'net::ERR_CONNECTION_RESET',
+  'net::ERR_CONNECTION_REFUSED',
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_TIMED_OUT',
+  'net::ERR_CONNECTION_TIMED_OUT',
+  'Navigation timeout',
+  'Timeout',
+  'ECONNRESET',
+  'ETIMEDOUT',
+] as const;
+
 export interface ExtractionResult {
-  data: any[];
+  data: ExtractedItem[];
+  /** Partial data recovered if extraction was interrupted */
+  partial: boolean;
+  /** Number of pages successfully extracted */
+  pagesExtracted: number;
   debug?: DebugInfo;
 }
 
@@ -108,5 +134,31 @@ export interface DebugInfo {
   itemsFound: number;
   fieldsExtracted: number;
   errors: string[];
-  samples: any[];
+  warnings: string[];
+  samples: ExtractedItem[];
+  timing: {
+    startTime: number;
+    endTime: number;
+    durationMs: number;
+  };
+}
+
+/** Error with additional context for debugging */
+export class ExtractionError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly context?: Record<string, unknown>,
+    public readonly recoverable: boolean = false
+  ) {
+    super(message);
+    this.name = 'ExtractionError';
+  }
+}
+
+/** URL validation result */
+export interface UrlValidation {
+  valid: boolean;
+  normalized?: string;
+  error?: string;
 }

@@ -2,10 +2,15 @@ import { parse } from 'yaml';
 import type { Template } from './types.js';
 import { validateTemplate } from './validator.js';
 
-const BUILTIN_TEMPLATES: Record<string, Template> = {
+interface BuiltinTemplate extends Template {
+  example: string;
+}
+
+const BUILTIN_TEMPLATES: Record<string, BuiltinTemplate> = {
   'hn-frontpage': {
     name: 'Hacker News Frontpage',
     description: 'Extract stories from Hacker News frontpage',
+    example: 'https://news.ycombinator.com',
     container: '.athing',
     fields: [
       {
@@ -38,6 +43,7 @@ const BUILTIN_TEMPLATES: Record<string, Template> = {
   'amazon-product': {
     name: 'Amazon Product',
     description: 'Extract product details from Amazon',
+    example: 'https://amazon.com/s?k=laptop',
     container: '[data-component-type="s-search-result"]',
     fields: [
       {
@@ -71,6 +77,7 @@ const BUILTIN_TEMPLATES: Record<string, Template> = {
   'reddit-subreddit': {
     name: 'Reddit Subreddit',
     description: 'Extract posts from a subreddit',
+    example: 'https://reddit.com/r/programming',
     container: 'shreddit-post',
     fields: [
       {
@@ -141,8 +148,6 @@ export function listTemplates() {
     id,
     name: tmpl.name,
     description: tmpl.description || '',
-    example: id === 'hn-frontpage' ? 'https://news.ycombinator.com' : 
-             id === 'amazon-product' ? 'https://amazon.com/s?k=laptop' :
-             'https://reddit.com/r/programming'
+    example: tmpl.example
   }));
 }
