@@ -1,6 +1,6 @@
 import { parse } from 'yaml';
 import type { Template } from './types.js';
-import { join } from 'path';
+import { validateTemplate } from './validator.js';
 
 const BUILTIN_TEMPLATES: Record<string, Template> = {
   'hn-frontpage': {
@@ -99,13 +99,14 @@ const BUILTIN_TEMPLATES: Record<string, Template> = {
   }
 };
 
-export async function loadTemplate(templatePath: string, isLocal: boolean): Promise<Template> {
-  // Built-in template
+export async function loadTemplate(templatePath: string, _isLocal?: boolean): Promise<Template> {
+  // Built-in template (@ prefix takes precedence)
   if (templatePath.startsWith('@')) {
     const templateName = templatePath.substring(1);
     const template = BUILTIN_TEMPLATES[templateName];
     if (!template) {
-      throw new Error(`Built-in template not found: ${templateName}`);
+      const available = Object.keys(BUILTIN_TEMPLATES).join(', ');
+      throw new Error(`Built-in template not found: ${templateName}. Available: ${available}`);
     }
     return template;
   }
@@ -117,7 +118,20 @@ export async function loadTemplate(templatePath: string, isLocal: boolean): Prom
   }
 
   const content = await file.text();
-  const template = parse(content) as Template;
+  const parsed = parse(content);
+
+  // Runtime validation of YAML content
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Template file must contain a valid YAML object');
+  }
+
+  const template = parsed as Template;
+
+  // Validate template structure
+  const errors = validateTemplate(template);
+  if (errors.length > 0) {
+    throw new Error(`Invalid template: ${errors.join('; ')}`);
+  }
 
   return template;
 }

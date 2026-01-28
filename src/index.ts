@@ -4,6 +4,7 @@ import { loadTemplate, listTemplates } from './templates.js';
 import { extractData } from './extractor.js';
 import { renderDebugUI } from './ui.js';
 import { validateTemplate } from './validator.js';
+import type { ExtractedItem } from './types.js';
 
 const program = new Command();
 
@@ -77,16 +78,18 @@ program
 
 program.parse();
 
-function formatOutput(data: any[], format: string): string {
+function formatOutput(data: ExtractedItem[], format: string): string {
   switch (format) {
     case 'jsonl':
       return data.map(d => JSON.stringify(d)).join('\n');
     case 'csv':
       if (data.length === 0) return '';
-      const headers = Object.keys(data[0]);
-      const csvLines = [headers.join(',')];
+      const firstItem = data[0];
+      if (!firstItem) return '';
+      const headers = Object.keys(firstItem);
+      const csvLines = [headers.map(h => escapeCsv(h)).join(',')];
       data.forEach(row => {
-        csvLines.push(headers.map(h => escapeCsv(String(row[h] || ''))).join(','));
+        csvLines.push(headers.map(h => escapeCsv(String(row[h] ?? ''))).join(','));
       });
       return csvLines.join('\n');
     case 'json':
@@ -95,8 +98,20 @@ function formatOutput(data: any[], format: string): string {
   }
 }
 
+/**
+ * Escapes a value for CSV output, preventing CSV injection attacks.
+ * Values starting with =, +, -, @, tab, or carriage return are prefixed
+ * with a single quote to prevent formula interpretation in spreadsheets.
+ */
 function escapeCsv(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+  // Prevent CSV injection (formula injection)
+  // Values starting with these characters can be interpreted as formulas
+  if (/^[=+\-@\t\r]/.test(value)) {
+    value = "'" + value;
+  }
+
+  // Quote values containing special characters
+  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes("'")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;

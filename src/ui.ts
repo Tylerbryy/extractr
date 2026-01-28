@@ -1,6 +1,6 @@
-import type { Template } from './types.js';
+import type { Template, ExtractedItem } from './types.js';
 
-export async function renderDebugUI(data: any[], template: Template): Promise<void> {
+export async function renderDebugUI(data: ExtractedItem[], template: Template): Promise<void> {
   // Simple console-based debug UI
   console.log('\n=== Extraction Summary ===');
   console.log(`Template: ${template.name}`);
@@ -10,8 +10,11 @@ export async function renderDebugUI(data: any[], template: Template): Promise<vo
   console.log('\n=== Sample Data ===');
   const sampleSize = Math.min(3, data.length);
   for (let i = 0; i < sampleSize; i++) {
-    console.log(`\nItem ${i + 1}:`);
-    console.log(JSON.stringify(data[i], null, 2));
+    const item = data[i];
+    if (item) {
+      console.log(`\nItem ${i + 1}:`);
+      console.log(JSON.stringify(item, null, 2));
+    }
   }
   
   if (data.length > sampleSize) {
